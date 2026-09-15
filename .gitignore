@@ -33,11 +33,17 @@ venv.bak/
 
 # GCP / 클라우드 서비스 계정 키 파일
 *service-account*.json
+*service_account*.json
 *credentials*.json
 *client_secret*.json
+*secret*.json
 gcp-key*.json
 google-credentials*.json
 firebase-adminsdk*.json
+token.json
+token.pickle
+*.bak
+*.backup
 
 # ==========================================
 # 4. Jupyter Notebook 체크포인트 및 캐시
@@ -50,8 +56,12 @@ firebase-adminsdk*.json
 # ==========================================
 .vscode/
 .idea/
+.gemini/
+.cursor/
+.claude/
 *.sublime-project
 *.sublime-workspace
+*.code-workspace
 
 # ==========================================
 # 6. 운영체제(OS) 임시 파일
@@ -68,3 +78,20 @@ ehthumbs.db
 logs/
 *.tmp
 *.temp
+
+# ==========================================
+# 8. 로컬 데이터베이스 및 세션 스토리지
+# ==========================================
+*.sqlite
+*.sqlite3
+*.db
+sessions/
+
+# ==========================================
+# 9. Python 테스트 및 코드 품질 분석 도구 캐시
+# ==========================================
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
