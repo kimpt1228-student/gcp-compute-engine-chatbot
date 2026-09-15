@@ -45,6 +45,24 @@ token.pickle
 *.bak
 *.backup
 
+# SSH 키 및 인증 정보
+id_rsa*
+id_ed25519*
+known_hosts
+*.pub
+
+# SSL/TLS 인증서 임시 파일 및 디렉토리
+letsencrypt/
+certbot/
+*.csr
+*.cer
+
+# 배포 설정 및 임시 파일
+config.yaml
+*.conf.local
+*.local
+deployment.log
+
 # ==========================================
 # 4. Jupyter Notebook 체크포인트 및 캐시
 # ==========================================

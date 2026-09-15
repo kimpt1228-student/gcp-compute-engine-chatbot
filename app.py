@@ -29,11 +29,24 @@ def get_gemini_api_key() -> str:
     try:
         from google.cloud import secretmanager
         client = secretmanager.SecretManagerServiceClient()
-        name = "projects/695113814332/secrets/GEMINI_API_KEY/versions/latest"
+
+        # 프로젝트 ID 자동 감지 (환경변수 또는 GCP 기본 인증 정보)
+        project_id = os.environ.get("GCP_PROJECT_ID") or os.environ.get("GOOGLE_CLOUD_PROJECT")
+        if not project_id:
+            try:
+                import google.auth
+                _, project_id = google.auth.default()
+            except Exception:
+                pass
+
+        if not project_id:
+            project_id = "YOUR_GCP_PROJECT_ID"
+
+        name = f"projects/{project_id}/secrets/GEMINI_API_KEY/versions/latest"
         response = client.access_secret_version(request={"name": name})
         secret_val = response.payload.data.decode("UTF-8").strip()
         if secret_val:
-            print("[INFO] Successfully retrieved GEMINI_API_KEY from GCP Secret Manager.")
+            print(f"[INFO] Successfully retrieved GEMINI_API_KEY from GCP Secret Manager (Project: {project_id}).")
             return secret_val
     except Exception as e:
         print(f"[WARN] Could not retrieve GEMINI_API_KEY from Secret Manager: {e}")

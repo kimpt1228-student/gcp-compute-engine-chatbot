@@ -42,7 +42,7 @@ chat_bot/
 ### 1. `app.py` (백엔드 서버)
 - **FastAPI**로 구축된 경량 고성능 웹 서버입니다.
 - **Secret Manager 자동 연동 (`get_gemini_api_key`)**:
-  - 시스템 환경변수에 `GEMINI_API_KEY`가 없더라도, 인스턴스의 서비스 계정 권한을 활용하여 `projects/695113814332/secrets/GEMINI_API_KEY`에서 자동으로 키를 불러옵니다.
+  - 시스템 환경변수에 `GEMINI_API_KEY`가 없더라도, 인스턴스의 서비스 계정 권한을 활용하여 `projects/<YOUR_PROJECT_ID>/secrets/GEMINI_API_KEY`에서 자동으로 키를 불러옵니다. (프로젝트 ID 미지정 시 기본 자격증명에서 자동 탐색)
 - **주요 엔드포인트**:
   - `GET /`: 정적 웹 UI 렌더링
   - `GET /api/status`: 챗봇 준비 상태, 모델 목록, 마스킹된 API 키 상태 반환
@@ -93,7 +93,7 @@ chat_bot/
 ```
 [ 사용자 브라우저 ]
        │
-       ▼ (1) 도메인 질의 : 136.113.50.82.sslip.io ──▶ IP 자동 반환 (sslip.io DNS 매직)
+       ▼ (1) 도메인 질의 : <YOUR_EXTERNAL_IP>.sslip.io ──▶ IP 자동 반환 (sslip.io DNS 매직)
        │
        ▼ (2) HTTPS 접속 (포트 443, TLS 암호화 터널)
 [ GCP VPC 방화벽 : 443, 80 포트 인바운드 허용 ]
@@ -109,8 +109,8 @@ chat_bot/
 ```
 
 1. **`sslip.io` (와일드카드 무료 DNS 서비스)**
-   - Let's Encrypt와 같은 공인 CA는 일반 공개 IP 주소(예: `136.113.50.82`)에 대해 직접 무료 인증서를 발급해 주지 않고 FQDN(도메인 이름)을 요구합니다.
-   - 유료 도메인을 구매하거나 DNS 네임서버를 복잡하게 설정하지 않고, IP 주소 뒤에 `.sslip.io`를 붙이면 해당 IP로 즉시 해석해 주는 DNS 매핑 도메인(`136.113.50.82.sslip.io`)을 생성하여 인증서 발급 요건을 해결했습니다.
+   - Let's Encrypt와 같은 공인 CA는 일반 공개 IP 주소(예: `34.xxx.xxx.xxx`)에 대해 직접 무료 인증서를 발급해 주지 않고 FQDN(도메인 이름)을 요구합니다.
+   - 유료 도메인을 구매하거나 DNS 네임서버를 복잡하게 설정하지 않고, IP 주소 뒤에 `.sslip.io`를 붙이면 해당 IP로 즉시 해석해 주는 DNS 매핑 도메인(`<YOUR_EXTERNAL_IP>.sslip.io`)을 생성하여 인증서 발급 요건을 해결했습니다.
 
 2. **`Let's Encrypt` & `Certbot` (공인 SSL 인증서 자동 발급 및 갱신)**
    - 비영리 글로벌 인증기관인 Let's Encrypt의 공인 인증서를 무료로 발급받았습니다.
@@ -166,15 +166,15 @@ python app.py
 1. **Secret Manager 접근 권한 부여**:
    ```bash
    gcloud secrets add-iam-policy-binding GEMINI_API_KEY \
-     --project=iceu-songpa23 \
-     --member="serviceAccount:695113814332-compute@developer.gserviceaccount.com" \
+     --project=<YOUR_PROJECT_ID> \
+     --member="serviceAccount:<YOUR_PROJECT_NUMBER>-compute@developer.gserviceaccount.com" \
      --role="roles/secretmanager.secretAccessor"
    ```
 
 2. **Compute Engine 인스턴스 생성**:
    ```bash
    gcloud compute instances create chatbot-instance \
-     --project=iceu-songpa23 \
+     --project=<YOUR_PROJECT_ID> \
      --zone=us-central1-a \
      --machine-type=e2-medium \
      --tags=chatbot-server,http-server \
@@ -204,7 +204,7 @@ python app.py
 
 - **인스턴스 SSH 원격 접속**:
   ```bash
-  gcloud compute ssh chatbot-instance --zone=us-central1-a --project=iceu-songpa23
+  gcloud compute ssh chatbot-instance --zone=us-central1-a --project=<YOUR_PROJECT_ID>
   ```
 - **챗봇 서비스 상태 확인**:
   ```bash
@@ -220,5 +220,5 @@ python app.py
   ```
 - **실습 종료 후 리소스 삭제 (과금 방지)**:
   ```bash
-  gcloud compute instances delete chatbot-instance --zone=us-central1-a --project=iceu-songpa23 --quiet
+  gcloud compute instances delete chatbot-instance --zone=us-central1-a --project=<YOUR_PROJECT_ID> --quiet
   ```
