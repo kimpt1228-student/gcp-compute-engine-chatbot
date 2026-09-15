@@ -21,7 +21,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
+def get_gemini_api_key() -> str:
+    key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if key:
+        return key
+    # Fallback to GCP Secret Manager
+    try:
+        from google.cloud import secretmanager
+        client = secretmanager.SecretManagerServiceClient()
+        name = "projects/695113814332/secrets/GEMINI_API_KEY/versions/latest"
+        response = client.access_secret_version(request={"name": name})
+        secret_val = response.payload.data.decode("UTF-8").strip()
+        if secret_val:
+            print("[INFO] Successfully retrieved GEMINI_API_KEY from GCP Secret Manager.")
+            return secret_val
+    except Exception as e:
+        print(f"[WARN] Could not retrieve GEMINI_API_KEY from Secret Manager: {e}")
+    return ""
+
+GEMINI_API_KEY = get_gemini_api_key()
 
 # Available Flash models
 SUPPORTED_MODELS = [
@@ -60,6 +78,9 @@ class ChatRequest(BaseModel):
 
 @app.get("/api/status")
 async def get_status():
+    global GEMINI_API_KEY
+    if not GEMINI_API_KEY:
+        GEMINI_API_KEY = get_gemini_api_key()
     api_key_set = bool(GEMINI_API_KEY)
     masked_key = f"{GEMINI_API_KEY[:6]}...{GEMINI_API_KEY[-4:]}" if api_key_set and len(GEMINI_API_KEY) > 10 else ("설정됨" if api_key_set else "미설정")
     return {
@@ -73,11 +94,12 @@ async def get_status():
 
 @app.post("/api/chat/stream")
 async def chat_stream(request: ChatRequest):
-    api_key = os.environ.get("GEMINI_API_KEY", "").strip() or GEMINI_API_KEY
+    global GEMINI_API_KEY
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip() or GEMINI_API_KEY or get_gemini_api_key()
     if not api_key:
         raise HTTPException(
             status_code=400,
-            detail="GEMINI_API_KEY 환경변수가 설정되지 않았습니다. 시스템 환경변수를 확인해주세요."
+            detail="GEMINI_API_KEY 환경변수가 설정되지 않았습니다. Secret Manager 또는 시스템 환경변수를 확인해주세요."
         )
 
     model_id = request.model
@@ -226,4 +248,4 @@ if __name__ == "__main__":
     except Exception:
         pass
 
-    uvicorn.run("app:app", host="127.0.0.1", port=8000, reload=False)
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=False)
