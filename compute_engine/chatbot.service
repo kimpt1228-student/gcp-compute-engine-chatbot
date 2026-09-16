@@ -1,0 +1,30 @@
+[Unit]
+Description=Gemini Flash Chatbot Service (FastAPI)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+
+# [경로 설정 가이드]
+# 1. git clone으로 전체 저장소를 /opt/chatbot에 복제한 경우:
+#    WorkingDirectory=/opt/chatbot/compute_engine
+# 2. scp로 compute_engine 폴더 내 파일들만 /opt/chatbot에 직접 복사한 경우:
+#    WorkingDirectory=/opt/chatbot
+WorkingDirectory=/opt/chatbot/compute_engine
+
+# 파이썬 출력 버퍼링 비활성화 (실시간 로그 확인용)
+Environment="PYTHONUNBUFFERED=1"
+
+# 실행 명령: 가상환경(.venv)의 uvicorn 실행
+ExecStart=/opt/chatbot/.venv/bin/uvicorn app:app --host 0.0.0.0 --port 8000
+
+# 장애 발생 시 3초 후 자동 재시작
+Restart=always
+RestartSec=3
+
+# 리소스 제한 (선택 사항)
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

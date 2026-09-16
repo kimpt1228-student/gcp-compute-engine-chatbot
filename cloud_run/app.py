@@ -11,7 +11,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-app = FastAPI(title="Gemini Flash Local Chatbot")
+app = FastAPI(
+    title="Gemini Flash Cloud Run Chatbot",
+    description="Google Cloud Run Serverless Gemini Flash Chatbot Service"
+)
 
 # CORS middleware
 app.add_middleware(
@@ -23,15 +26,21 @@ app.add_middleware(
 )
 
 def get_gemini_api_key() -> str:
+    """
+    API 키 검색 우선순위:
+    1. 환경변수 (Cloud Run의 --set-secrets로 주입된 GEMINI_API_KEY)
+    2. GCP Secret Manager 클라이언트 라이브러리를 통한 직접 조회 (IAM 서비스 계정 활용)
+    """
     key = os.environ.get("GEMINI_API_KEY", "").strip()
     if key:
         return key
-    # Fallback to GCP Secret Manager
+
+    # Fallback to GCP Secret Manager Client Library
     try:
         from google.cloud import secretmanager
         client = secretmanager.SecretManagerServiceClient()
 
-        # 프로젝트 ID 자동 감지 (환경변수 또는 GCP 기본 인증 정보)
+        # 프로젝트 ID 자동 감지
         project_id = os.environ.get("GCP_PROJECT_ID") or os.environ.get("GOOGLE_CLOUD_PROJECT")
         if not project_id:
             try:
@@ -47,7 +56,7 @@ def get_gemini_api_key() -> str:
         response = client.access_secret_version(request={"name": name})
         secret_val = response.payload.data.decode("UTF-8").strip()
         if secret_val:
-            print(f"[INFO] Successfully retrieved GEMINI_API_KEY from GCP Secret Manager (Project: {project_id}).")
+            print(f"[INFO] Successfully retrieved GEMINI_API_KEY from Secret Manager (Project: {project_id}).")
             return secret_val
     except Exception as e:
         print(f"[WARN] Could not retrieve GEMINI_API_KEY from Secret Manager: {e}")
@@ -90,6 +99,15 @@ class ChatRequest(BaseModel):
     enable_search: bool = True
     thinking_level: Optional[str] = "medium"
 
+@app.get("/health")
+async def health_check():
+    """Cloud Run Liveness/Startup Probe 헬스체크"""
+    return {
+        "status": "healthy",
+        "platform": "Google Cloud Run",
+        "ready": bool(GEMINI_API_KEY or get_gemini_api_key())
+    }
+
 @app.get("/api/status")
 async def get_status():
     global GEMINI_API_KEY
@@ -99,6 +117,7 @@ async def get_status():
     masked_key = f"{GEMINI_API_KEY[:6]}...{GEMINI_API_KEY[-4:]}" if api_key_set and len(GEMINI_API_KEY) > 10 else ("설정됨" if api_key_set else "미설정")
     return {
         "status": "ready" if api_key_set else "need_api_key",
+        "platform": "Google Cloud Run",
         "apiKeySet": api_key_set,
         "maskedKey": masked_key,
         "defaultModel": "gemini-3.8-flash",
@@ -113,16 +132,14 @@ async def chat_stream(request: ChatRequest):
     if not api_key:
         raise HTTPException(
             status_code=400,
-            detail="GEMINI_API_KEY 환경변수가 설정되지 않았습니다. Secret Manager 또는 시스템 환경변수를 확인해주세요."
+            detail="GEMINI_API_KEY가 설정되지 않았습니다. Cloud Run Secret 환경변수 또는 Secret Manager 권한을 확인해주세요."
         )
 
     model_id = request.model
-    # Validate model
     valid_ids = [m["id"] for m in SUPPORTED_MODELS]
     if model_id not in valid_ids:
         model_id = "gemini-3.8-flash"
 
-    # Build Gemini API contents payload
     contents = []
     for msg in request.messages:
         role = "user" if msg.role == "user" else "model"
@@ -160,7 +177,7 @@ async def chat_stream(request: ChatRequest):
         "generationConfig": gen_config
     }
 
-    # Enable Google Search grounding (Internet connection)
+    # Enable Google Search grounding
     if request.enable_search:
         payload["tools"] = [{"googleSearch": {}}]
 
@@ -197,19 +214,19 @@ async def chat_stream(request: ChatRequest):
                                     text_piece = "".join(p.get("text", "") for p in parts)
                                     finish_reason = cand.get("finishReason")
                                     
-                                    # Check for Google Search Grounding Metadata
+                                    # Google Search Grounding Metadata
                                     if "groundingMetadata" in cand:
                                         gm = cand["groundingMetadata"]
                                         queries = gm.get("webSearchQueries", [])
                                         chunks = gm.get("groundingChunks", [])
                                         sources = []
                                         for c in chunks:
-                                            web = c.get("web")
-                                            if web and web.get("uri"):
-                                                sources.append({
-                                                    "title": web.get("title") or web.get("uri"),
-                                                    "uri": web.get("uri")
-                                                })
+                                             web = c.get("web")
+                                             if web and web.get("uri"):
+                                                 sources.append({
+                                                     "title": web.get("title") or web.get("uri"),
+                                                     "uri": web.get("uri")
+                                                 })
                                         if queries or sources:
                                             yield f"data: {json.dumps({'grounding': {'queries': queries, 'sources': sources}})}\n\n"
 
@@ -250,16 +267,19 @@ async def read_index():
 
 if __name__ == "__main__":
     import uvicorn
+    # Cloud Run injects the PORT environment variable (default: 8080)
+    port = int(os.environ.get("PORT", "8080"))
+    
     print("==================================================")
-    print(" Gemini Flash Local Web Service Starting...")
+    print(" Gemini Flash Cloud Run Web Service Starting...")
+    print(f" Port: {port}")
     print(" Default Model: gemini-3.8-flash (Option: gemini-3.7-flash)")
     print(f" API Key Loaded: {'Yes' if GEMINI_API_KEY else 'No (Set GEMINI_API_KEY env)'}")
-    print(" URL: http://localhost:8000")
+    print(f" Local Test URL: http://localhost:{port}")
     print("==================================================")
-    
-    # Ensure current directory is in sys.path for standalone or module execution
+
     current_dir = os.path.dirname(os.path.abspath(__file__))
     if current_dir not in sys.path:
         sys.path.insert(0, current_dir)
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=port)

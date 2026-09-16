@@ -1,17 +1,18 @@
-# 🤖 GCP Compute Engine 기반 Gemini Flash 챗봇
+# 🤖 GCP 기반 Gemini Flash 챗봇 (Compute Engine & Cloud Run)
 
-Google Cloud Platform(GCP)의 **Compute Engine (VM)** 환경에 FastAPI 기반의 차세대 **Gemini Flash 챗봇**을 배포하고, **Secret Manager**를 통한 보안 키 관리와 **Let's Encrypt 공인 SSL(HTTPS)**을 적용한 프로덕션 수준의 웹 서비스 프로젝트입니다.
+Google Cloud Platform(GCP)의 **Compute Engine (VM)** 및 **Cloud Run (서버리스 컨테이너)** 환경에 FastAPI 기반의 차세대 **Gemini Flash 챗봇**을 배포하고, **Secret Manager**를 통한 보안 키 관리와 공인 SSL(HTTPS)을 적용한 프로덕션 수준의 웹 서비스 프로젝트입니다.
 
 ---
 
 ## 🌟 주요 특징
 
 - ⚡ **최신 Gemini 모델 탑재**: `Gemini 3.8 Flash`(기본) 및 `Gemini 3.7 Flash` 모델 지원
+- ☁️ **멀티 플랫폼 배포 지원**:
+  - **Compute Engine (`compute_engine/`)**: Nginx 리버스 프록시 + Let's Encrypt SSL + systemd 상시 구동
+  - **Cloud Run (`cloud_run/`)**: 도커 컨테이너 기반 서버리스 배포, Scale to Zero, Google 관리형 SSL 자동 적용
 - 🔒 **안전한 API 키 관리**: 로컬 파일이나 환경변수에 노출하지 않고 **GCP Secret Manager**에서 서비스 계정(IAM)을 통해 런타임에 직접 안전하게 호출
-- 🌐 **공인 SSL(HTTPS) 완벽 지원**: 도메인 구매 없이 `sslip.io`와 Let's Encrypt(Certbot)를 연동하여 브라우저 경고 없는 **녹색 자물쇠(HTTPS)** 보안 연결 구축
 - 🚀 **실시간 스트리밍 대화**: Server-Sent Events(SSE) 방식으로 한 글자씩 실시간 타이핑되는 자연스러운 스트리밍 응답 제공
 - 🔎 **Google Search Grounding**: 최신 정보 및 뉴스 실시간 웹 검색 연동
-- 🛡️ **상시 무중단 구동**: Linux `systemd` 데몬 및 Nginx 리버스 프록시 연동으로 인스턴스 재부팅 시에도 자동 복구
 
 ---
 
@@ -19,45 +20,60 @@ Google Cloud Platform(GCP)의 **Compute Engine (VM)** 환경에 FastAPI 기반�
 
 ```plaintext
 chat_bot/
-├── deployment.log                     # 전체 배포 및 HTTPS 설정 실시간 작업 로그
 └── gcp-compute-engine-chatbot/
-    ├── app.py                         # FastAPI 백엔드 메인 서버 (Secret Manager & Gemini API)
-    ├── chatbot.conf                   # Nginx 리버스 프록시 및 HTTPS/SSE 설정 파일
     ├── compute_engine_example.ipynb   # Compute Engine 생성 및 리전별 비용 분석 실습 노트북
-    ├── deployment.log                 # 작업 과정 상세 기록 로그 파일
-    ├── HOW_https.html                 # [가이드] HTTPS 동작 원리 및 구축 방법 시각화 웹 문서
-    ├── requirements.txt               # 파이썬 필수 패키지 목록
-    ├── run.bat                        # 로컬 윈도우 환경 실행용 배치 파일
-    ├── startup-script.sh              # VM 인스턴스 최초 부팅 시 자동 설치 스크립트
-    └── static/                        # 웹 UI 정적 리소스
-        ├── index.html                 # 챗봇 웹 인터페이스 화면
-        ├── style.css                  # 모던 다크/라이트 테마 CSS 스타일
-        └── app.js                     # 클라이언트 대화 처리 및 SSE 스트리밍 JS 로직
+    ├── deployment.log                 # 배포 작업 기록 로그 파일
+    ├── run.bat                        # 루트 실행용 배치 파일 (compute_engine/app.py 연동)
+    ├── README.md                      # 프로젝트 설명 및 배포 가이드 문서
+    │
+    ├── compute_engine/                # [VM 배포] Compute Engine 배포용 소스 & 인프라
+    │   ├── app.py                     # FastAPI 백엔드 메인 서버 (포트 8000)
+    │   ├── requirements.txt           # 파이썬 필수 패키지 목록
+    │   ├── chatbot.conf               # Nginx 리버스 프록시 및 HTTPS/SSE 설정 파일
+    │   ├── chatbot.service            # GCP VM systemd 데몬 등록 템플릿
+    │   ├── startup-script.sh          # VM 인스턴스 최초 부팅 시 자동 설치 스크립트
+    │   ├── deploy_to_vm.sh            # GCP VM 원클릭 SCP 배포 스크립트
+    │   ├── run.bat                    # 로컬 실행 배치 파일
+    │   └── static/                    # 웹 UI 정적 리소스 (HTML/CSS/JS)
+    │
+    └── cloud_run/                     # [서버리스 컨테이너] Cloud Run 배포용 소스 & Docker
+        ├── app.py                     # Cloud Run 규격 FastAPI 메인 서버 (PORT 8080 대응)
+        ├── Dockerfile                 # Python 3.11-slim 경량 프로덕션 이미지
+        ├── .dockerignore              # 빌드 제외 파일 목록
+        ├── requirements.txt           # 파이썬 의존성 패키지 목록
+        ├── deploy_to_cloud_run.sh     # Cloud Run 원클릭 소스 배포 스크립트
+        ├── run.bat                    # 로컬 Cloud Run 시뮬레이션 배치 파일 (포트 8080)
+        ├── README.md                  # Cloud Run 상세 배포 가이드
+        └── static/                    # 웹 UI 정적 리소스 (HTML/CSS/JS)
 ```
 
 ---
 
 ## 🧩 핵심 파일 상세 설명
 
-### 1. `app.py` (백엔드 서버)
+### 1. `compute_engine/app.py` (백엔드 서버)
 - **FastAPI**로 구축된 경량 고성능 웹 서버입니다.
 - **Secret Manager 자동 연동 (`get_gemini_api_key`)**:
   - 시스템 환경변수에 `GEMINI_API_KEY`가 없더라도, 인스턴스의 서비스 계정 권한을 활용하여 `projects/<YOUR_PROJECT_ID>/secrets/GEMINI_API_KEY`에서 자동으로 키를 불러옵니다. (프로젝트 ID 미지정 시 기본 자격증명에서 자동 탐색)
 - **주요 엔드포인트**:
-  - `GET /`: 정적 웹 UI 렌더링
+  - `GET /`: 정적 웹 UI 렌더링 (`compute_engine/static/index.html` 자동 연동)
   - `GET /api/status`: 챗봇 준비 상태, 모델 목록, 마스킹된 API 키 상태 반환
   - `POST /api/chat/stream`: Gemini API와의 SSE(Server-Sent Events) 실시간 대화 스트리밍 처리
 
-### 2. `chatbot.conf` (Nginx 리버스 프록시 설정)
+### 2. `compute_engine/chatbot.conf` (Nginx 리버스 프록시 설정)
 - 외부(사용자)의 HTTPS 요청을 받아 내부의 FastAPI(`127.0.0.1:8000`)로 안전하게 전달합니다.
 - 포트 80(HTTP)으로 들어오는 모든 요청을 포트 443(HTTPS)으로 301 영구 리다이렉트합니다.
 - `proxy_buffering off;` 옵션으로 실시간 스트리밍 답변이 중간에 멈추거나 지연되지 않도록 최적화되어 있습니다.
 
-### 3. `startup-script.sh` (초기화 스크립트)
-- Compute Engine 인스턴스가 생성될 때 OS 초기화 과정에서 `python3`, `python3-pip`, `python3-venv`, `git`, `curl`을 자동으로 설치합니다.
+### 3. `compute_engine/chatbot.service` (systemd 데몬 설정)
+- GCP Linux VM에서 백엔드 앱을 상시 무중단으로 구동하기 위한 서비스 파일입니다.
+- `WorkingDirectory=/opt/chatbot/compute_engine` 지정 및 인스턴스 재부팅 시 자동 기동을 지원합니다.
 
-### 4. `HOW_https.html` (HTTPS 시각화 가이드)
-- 왜 HTTP 접속 시 "주의 요함" 경고가 발생하며, 이를 어떻게 공인 무료 도메인(`sslip.io`)과 Let's Encrypt를 통해 해결했는지 다이어그램과 쉬운 설명으로 풀어낸 대화형 웹 문서입니다. 브라우저로 열어서 바로 확인할 수 있습니다.
+### 4. `compute_engine/startup-script.sh` (초기화 스크립트)
+- Compute Engine 인스턴스가 생성될 때 OS 초기화 과정에서 `python3`, `python3-pip`, `python3-venv`, `git`, `curl` 및 기본 폴더(`/opt/chatbot/compute_engine`)를 자동으로 구성합니다.
+
+### 5. `compute_engine/deploy_to_vm.sh` (원클릭 배포 자동화)
+- 로컬 또는 Cloud Shell에서 `./compute_engine/deploy_to_vm.sh [인스턴스명] [존] [프로젝트ID]` 한 줄로 소스 SCP 전송, 가상환경 패키지 설치, systemd 재시작까지 자동으로 수행합니다.
 
 ---
 
@@ -154,14 +170,25 @@ chat_bot/
 ### 1. 로컬 환경에서 실행
 ```bash
 # 의존성 패키지 설치
-pip install -r requirements.txt
+pip install -r compute_engine/requirements.txt
 
-# 실행 (GEMINI_API_KEY 환경변수 설정 후)
+# 방법 A: compute_engine 폴더에서 실행 (GEMINI_API_KEY 환경변수 설정 후)
+cd compute_engine
 python app.py
-# 또는 run.bat 더블클릭
+
+# 방법 B: 루트 또는 compute_engine 폴더 내 run.bat 더블클릭
 ```
 
 ### 2. GCP Compute Engine 배포 단계 요약
+
+#### 옵션 A: 자동 배포 스크립트 이용 (`deploy_to_vm.sh`)
+```bash
+# 로컬 터미널 / Cloud Shell에서 실행 (인스턴스가 생성되어 있는 상태)
+chmod +x compute_engine/deploy_to_vm.sh
+./compute_engine/deploy_to_vm.sh chatbot-instance us-central1-a <YOUR_PROJECT_ID>
+```
+
+#### 옵션 B: 단계별 수동 배포
 
 1. **Secret Manager 접근 권한 부여**:
    ```bash
@@ -178,7 +205,8 @@ python app.py
      --zone=us-central1-a \
      --machine-type=e2-medium \
      --tags=chatbot-server,http-server \
-     --scopes=https://www.googleapis.com/auth/cloud-platform
+     --scopes=https://www.googleapis.com/auth/cloud-platform \
+     --metadata-from-file=startup-script=compute_engine/startup-script.sh
    ```
 
 3. **VPC 방화벽 포트 오픈 (8000, 80, 443)**:
@@ -188,13 +216,32 @@ python app.py
      --target-tags=chatbot-server
    ```
 
-4. **소스 배포 및 systemd 서비스 등록**:
-   - VM에 소스 코드 전송 후 Python 가상환경 생성
-   - `/etc/systemd/system/chatbot.service` 등록 후 `systemctl enable --now chatbot`
+4. **소스 배포 (SCP 전송)**:
+   ```bash
+   # VM 내 디렉터리 준비
+   gcloud compute ssh chatbot-instance --zone=us-central1-a --command="sudo mkdir -p /opt/chatbot/compute_engine && sudo chown -R \$USER:\$USER /opt/chatbot"
 
-5. **Let's Encrypt 공인 SSL 적용 (HTTPS 구축)**:
+   # compute_engine 소스 전송
+   gcloud compute scp --recurse compute_engine/* chatbot-instance:/opt/chatbot/compute_engine/ --zone=us-central1-a
+   ```
+
+5. **Python 가상환경 및 systemd 서비스 등록**:
+   ```bash
+   gcloud compute ssh chatbot-instance --zone=us-central1-a
+   
+   # VM 내부 접속 후:
+   python3 -m venv /opt/chatbot/.venv
+   /opt/chatbot/.venv/bin/pip install -r /opt/chatbot/compute_engine/requirements.txt
+   sudo cp /opt/chatbot/compute_engine/chatbot.service /etc/systemd/system/chatbot.service
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now chatbot.service
+   ```
+
+6. **Let's Encrypt 공인 SSL 적용 (HTTPS 구축)**:
    ```bash
    sudo apt-get install -y nginx certbot python3-certbot-nginx
+   sudo cp /opt/chatbot/compute_engine/chatbot.conf /etc/nginx/sites-available/chatbot
+   sudo ln -sf /etc/nginx/sites-available/chatbot /etc/nginx/sites-enabled/
    sudo certbot --nginx -d <외부IP>.sslip.io --non-interactive --agree-tos -m <이메일> --redirect
    ```
 

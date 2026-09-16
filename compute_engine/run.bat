@@ -1,13 +1,13 @@
 @echo off
-title Gemini Flash Chatbot Service
+title Gemini Flash Chatbot Service (Compute Engine)
 
 echo ========================================================
-echo   Gemini Flash Local Web Chatbot Service
+echo   Gemini Flash Local Web Chatbot Service (Compute Engine)
 echo   Models: Gemini 3.8 Flash / Gemini 3.7 Flash
 echo ========================================================
 echo.
 
-cd /d "%~dp0compute_engine"
+cd /d "%~dp0"
 
 REM 1. Check Miniconda Python directly
 if exist "C:\Users\%USERNAME%\miniconda3\python.exe" (
