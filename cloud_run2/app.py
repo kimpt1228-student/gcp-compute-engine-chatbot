@@ -103,7 +103,8 @@ class ADCTokenManager:
                 else:
                     raise RuntimeError(f"ADC 토큰 갱신 실패: {e}")
 
-        project = self.project_id or "iceu-songpa23"
+        # 프로젝트 ID 기본값 fallback
+        project = self.project_id or os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT_ID") or ""
         return self.credentials.token, project
 
     def get_identity_info(self) -> dict:
@@ -119,7 +120,7 @@ class ADCTokenManager:
             "ready": is_ready,
             "auth_type": "Application Default Credentials (ADC)",
             "account": account if is_ready else "Unauthenticated",
-            "project_id": self.project_id or "iceu-songpa23"
+            "project_id": self.project_id or os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT_ID") or ""
         }
 
 adc_manager = ADCTokenManager()
